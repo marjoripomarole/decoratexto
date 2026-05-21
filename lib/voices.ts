@@ -1,8 +1,10 @@
+// Voice slots — map to browser's pt-BR voices by index.
+// Actual voice name (Luciana, Francisca, Google pt-BR, etc.) depends on the OS/browser.
 export const VOICES = [
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female" },
-  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", gender: "female" },
-  { id: "SAz9YHcvj6GT2YYXdXww", name: "River", gender: "neutral" },
-  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male" },
-  { id: "N2lVS1w4EtoT3dr4eOWO", name: "Callum", gender: "male" },
-  { id: "bIHbv24MWmeRgasZH58o", name: "Will", gender: "male" },
+  { id: "0", name: "Voz A", gender: "female" },
+  { id: "1", name: "Voz B", gender: "female" },
+  { id: "2", name: "Voz C", gender: "male" },
+  { id: "3", name: "Voz D", gender: "male" },
+  { id: "4", name: "Voz E", gender: "female" },
+  { id: "5", name: "Voz F", gender: "male" },
 ]

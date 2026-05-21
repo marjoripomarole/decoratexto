@@ -1,6 +1,14 @@
-// ElevenLabs TTS via server-side proxy — key never exposed to browser
+// Uses the browser's built-in SpeechSynthesis API with pt-BR voices.
+// On macOS/iOS: Luciana; Chrome/Android: Google pt-BR; Windows: Francisca.
+// No API calls needed — runs entirely client-side.
 
-let currentAudio: HTMLAudioElement | null = null
+let currentUtterance: SpeechSynthesisUtterance | null = null
+
+function getPtBRVoices(): SpeechSynthesisVoice[] {
+  return window.speechSynthesis
+    .getVoices()
+    .filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR" || v.lang.startsWith("pt-BR"))
+}
 
 export async function speak(
   text: string,
@@ -9,45 +17,38 @@ export async function speak(
 ) {
   stop()
 
-  const res = await fetch("/api/tts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, voiceId }),
+  return new Promise<void>((resolve) => {
+    const utter = new SpeechSynthesisUtterance(text)
+    utter.lang = "pt-BR"
+    utter.rate = options?.rate ?? 1
+
+    // Try to pick a specific pt-BR voice by index for character differentiation
+    const voices = getPtBRVoices()
+    const idx = parseInt(voiceId, 10)
+    if (voices.length > 0) utter.voice = voices[idx % voices.length]
+
+    currentUtterance = utter
+
+    utter.onend = () => {
+      currentUtterance = null
+      options?.onEnd?.()
+      resolve()
+    }
+    utter.onerror = () => {
+      currentUtterance = null
+      options?.onError?.()
+      resolve()
+    }
+
+    window.speechSynthesis.speak(utter)
   })
-
-  if (!res.ok) {
-    options?.onError?.()
-    return
-  }
-
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-
-  const audio = new Audio(url)
-  audio.playbackRate = options?.rate ?? 1
-  currentAudio = audio
-
-  audio.onended = () => {
-    URL.revokeObjectURL(url)
-    currentAudio = null
-    options?.onEnd?.()
-  }
-  audio.onerror = () => {
-    URL.revokeObjectURL(url)
-    currentAudio = null
-    options?.onError?.()
-  }
-
-  await audio.play()
 }
 
 export function stop() {
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio = null
-  }
+  window.speechSynthesis.cancel()
+  currentUtterance = null
 }
 
 export function isSpeaking(): boolean {
-  return currentAudio !== null && !currentAudio.paused
+  return window.speechSynthesis.speaking
 }

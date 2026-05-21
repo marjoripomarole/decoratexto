@@ -5,6 +5,14 @@ import type { ParsedScript, ScriptLine } from "@/types/script"
 import { speak, stop } from "@/lib/tts"
 import { VOICES } from "@/lib/voices"
 
+function getPtBRVoiceNames(): string[] {
+  if (typeof window === "undefined") return []
+  return window.speechSynthesis
+    .getVoices()
+    .filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR" || v.lang.startsWith("pt-BR"))
+    .map((v) => v.name)
+}
+
 interface Props {
   script: ParsedScript
   playerCharacter: string
@@ -131,13 +139,20 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
           </div>
           {script.characters.filter(c => c !== playerCharacter).length > 0 && (
             <div className="pt-3 border-t border-white/5 space-y-2">
-              <p className="text-[10px] tracking-widest text-cream/25 uppercase">Vozes atribuídas</p>
-              {script.characters.filter(c => c !== playerCharacter).map((char) => (
-                <div key={char} className="flex justify-between text-xs">
-                  <span className="text-cream/60 font-semibold">{char}</span>
-                  <span className="text-cream/30">{VOICES.find(v => v.id === voiceMap[char])?.name ?? "—"}</span>
-                </div>
-              ))}
+              <p className="text-[10px] tracking-widest text-cream/25 uppercase">Vozes atribuídas (pt-BR)</p>
+              {script.characters.filter(c => c !== playerCharacter).map((char) => {
+                const voiceNames = getPtBRVoiceNames()
+                const idx = parseInt(voiceMap[char] ?? "0", 10)
+                const name = voiceNames.length > 0
+                  ? voiceNames[idx % voiceNames.length]
+                  : "Voz do sistema (pt-BR)"
+                return (
+                  <div key={char} className="flex justify-between text-xs">
+                    <span className="text-cream/60 font-semibold">{char}</span>
+                    <span className="text-cream/30">{name}</span>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
