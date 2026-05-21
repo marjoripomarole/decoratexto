@@ -19,24 +19,6 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-cream">
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 border-b border-gold/25 bg-cream/90 backdrop-blur-md">
-        <button
-          onClick={() => setStage("upload")}
-          className="flex items-center gap-2.5 group"
-        >
-          <span className="text-lg">🎭</span>
-          <span className="font-display font-bold text-charcoal text-lg tracking-tight group-hover:text-wine transition-colors">
-            DecoraTexto
-          </span>
-        </button>
-        {stage !== "upload" && (
-          <span className="text-xs tracking-widest text-charcoal/30 uppercase">
-            {stage === "select" ? "Escolher personagem" : "Praticando"}
-          </span>
-        )}
-      </header>
-
       <main className="flex-1 flex flex-col">
 
         {/* ── UPLOAD STAGE ── */}
