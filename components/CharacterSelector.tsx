@@ -1,14 +1,19 @@
 "use client"
 
+import type { User } from "@supabase/supabase-js"
 import type { ParsedScript } from "@/types/script"
 
 interface Props {
   script: ParsedScript
   onSelect: (character: string) => void
   onBack: () => void
+  user?: User | null
+  savedId?: string | null
+  saving?: boolean
+  onSave?: () => void
 }
 
-export default function CharacterSelector({ script, onSelect, onBack }: Props) {
+export default function CharacterSelector({ script, onSelect, onBack, user, savedId, saving, onSave }: Props) {
   const counts = script.characters.reduce<Record<string, number>>((acc, c) => {
     acc[c] = script.lines.filter((l) => l.character === c && !l.isStageDirection).length
     return acc
@@ -32,7 +37,7 @@ export default function CharacterSelector({ script, onSelect, onBack }: Props) {
             onClick={() => onSelect(char)}
             className="group relative flex flex-col gap-2 rounded-2xl border border-charcoal/10 bg-warm-white px-5 py-5 text-left transition-all duration-200 hover:border-wine/35 hover:bg-wine/5 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
           >
-            <span className="font-mono text-[10px] tracking-widest text-gold group-hover:text-gold transition-colors">
+            <span className="font-mono text-[10px] tracking-widests text-gold">
               {String(i + 1).padStart(2, "0")}
             </span>
             <span className="font-display font-bold text-charcoal text-xl leading-tight break-words">
@@ -46,13 +51,31 @@ export default function CharacterSelector({ script, onSelect, onBack }: Props) {
         ))}
       </div>
 
-      <div className="text-center">
+      {/* Footer actions */}
+      <div className="flex items-center justify-between">
         <button
           onClick={onBack}
           className="text-xs text-charcoal/30 hover:text-charcoal/70 transition-colors underline underline-offset-4"
         >
           Trocar roteiro
         </button>
+
+        {/* Save button — shown only to logged-in users */}
+        {user && onSave && (
+          savedId ? (
+            <span className="flex items-center gap-1 text-xs text-gold font-medium">
+              <span>✓</span> Roteiro salvo
+            </span>
+          ) : (
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 text-xs text-charcoal/40 hover:text-wine border border-charcoal/12 hover:border-wine/30 rounded-lg px-3 py-1.5 transition-all disabled:opacity-40"
+            >
+              {saving ? "Salvando…" : "↑ Salvar roteiro"}
+            </button>
+          )
+        )}
       </div>
     </div>
   )
