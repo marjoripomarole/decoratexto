@@ -23,6 +23,21 @@ function assignVoices(characters: string[], playerCharacter: string): Record<str
   return map
 }
 
+export function getCueText(text: string, maxWords = 5): string {
+  const normalized = text.trim().replace(/\s+/g, " ")
+  if (!normalized) return ""
+
+  const sentences = normalized.match(/[^.!?…]+[.!?…]*/g)
+  const finalSentence = sentences?.at(-1)?.trim() || normalized
+  const words = finalSentence.split(/\s+/)
+
+  return words.length <= maxWords ? finalSentence : words.slice(-maxWords).join(" ")
+}
+
+function getAudioCacheId(lineId: string, cueMode: boolean): string {
+  return cueMode ? `${lineId}:cue` : lineId
+}
+
 export default function PracticeView({ script, playerCharacter, onBack }: Props) {
   const lines = useMemo(() => getPracticeLines(script), [script])
   const voiceMap = useMemo(() => assignVoices(script.characters, playerCharacter), [script.characters, playerCharacter])
@@ -33,6 +48,7 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
   const [loading, setLoading] = useState(false)
   const [speechRate, setSpeechRate] = useState(1)
   const [autoPlay, setAutoPlay] = useState(true)
+  const [cueMode, setCueMode] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [preload, setPreload] = useState<PreloadStatus>({ total: 0, loaded: 0, done: true })
 
@@ -43,26 +59,27 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
   useEffect(() => {
     const nonPlayerLines = lines.filter((l) => l.character !== playerCharacter)
     const items = nonPlayerLines.map((l) => ({
-      id: l.id,
-      text: l.text,
+      id: getAudioCacheId(l.id, cueMode),
+      text: cueMode ? getCueText(l.text) : l.text,
       voiceId: voiceMap[l.character] ?? VOICES[0].id,
     }))
     const unsub = onStatus(setPreload)
     preloadLines(items)
     return () => { unsub(); clearCache() }
-  }, [lines, playerCharacter, voiceMap])
+  }, [cueMode, lines, playerCharacter, voiceMap])
 
   const playCurrentLine = useCallback(async () => {
     if (!current || isPlayerLine) return
     const voiceId = voiceMap[current.character] ?? VOICES[0].id
+    const spokenText = cueMode ? getCueText(current.text) : current.text
     setLoading(true); setSpeaking(true)
     await speak(
-      current.text, voiceId,
+      spokenText, voiceId,
       { rate: speechRate, onEnd: () => { setSpeaking(false); setLoading(false) }, onError: () => { setSpeaking(false); setLoading(false) } },
-      current.id,
+      getAudioCacheId(current.id, cueMode),
     )
     setLoading(false)
-  }, [current, isPlayerLine, voiceMap, speechRate])
+  }, [cueMode, current, isPlayerLine, voiceMap, speechRate])
 
   useEffect(() => {
     if (autoPlay && current && !isPlayerLine) {
@@ -143,9 +160,22 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
             <span className="text-ink/60 text-xs tracking-wide">Leitura automática</span>
             <button
               onClick={() => setAutoPlay((a) => !a)}
+              aria-label={autoPlay ? "Desativar leitura automática" : "Ativar leitura automática"}
+              aria-pressed={autoPlay}
               className={`relative w-10 h-5 rounded-full transition-colors ${autoPlay ? "bg-wine" : "bg-ink/15"}`}
             >
               <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${autoPlay ? "translate-x-5" : ""}`} />
+            </button>
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-ink/60 text-xs tracking-wide">Só deixa</span>
+            <button
+              onClick={() => setCueMode((enabled) => !enabled)}
+              aria-label={cueMode ? "Desativar modo só deixa" : "Ativar modo só deixa"}
+              aria-pressed={cueMode}
+              className={`relative w-10 h-5 rounded-full transition-colors ${cueMode ? "bg-wine" : "bg-ink/15"}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${cueMode ? "translate-x-5" : ""}`} />
             </button>
           </label>
           <div className="flex items-center justify-between gap-4">
@@ -213,7 +243,7 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
         ) : (
           <>
             <p className="font-display text-2xl md:text-4xl leading-relaxed text-ink/75">
-              {current.text}
+              {cueMode ? getCueText(current.text) : current.text}
             </p>
             <button onClick={playCurrentLine} disabled={speaking || loading}
               className="self-start flex items-center gap-2 rounded-lg border border-ink/12 px-4 py-2 text-xs font-semibold tracking-wide text-ink/45 transition-all hover:border-wine/30 hover:text-wine disabled:opacity-30">
