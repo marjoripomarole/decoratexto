@@ -8,6 +8,10 @@
   --color-gold:       #C89B3C;
   --color-warm-white: #FFF9F0;
   --color-surface:    #1c1c1c;
+  --color-ink:        #151413;
+  --color-paper:      #FBF4EA;
+  --color-mist:       #DCE5DF;
+  --color-clay:       #B96D4A;
 }
 
 @theme inline {
@@ -17,6 +21,14 @@
 }
 
 body {
-  background: #F5EFE6;
+  background: #151413;
   color: #111111;
+}
+
+.stage-grid {
+  background:
+    linear-gradient(rgba(255, 249, 240, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 249, 240, 0.035) 1px, transparent 1px),
+    #151413;
+  background-size: 42px 42px;
 }

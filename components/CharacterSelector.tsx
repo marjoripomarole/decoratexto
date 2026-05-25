@@ -20,33 +20,43 @@ export default function CharacterSelector({ script, onSelect, onBack, user, save
   }, {})
 
   return (
-    <div className="w-full max-w-lg mx-auto space-y-8">
+    <div className="w-full max-w-3xl mx-auto space-y-8">
 
       {/* Header */}
-      <div className="text-center space-y-2">
-        <p className="text-[10px] tracking-[0.3em] text-wine/60 uppercase">Roteiro carregado</p>
-        <h2 className="font-display font-bold text-charcoal text-3xl leading-tight">{script.title}</h2>
-        <p className="text-charcoal/50 text-sm">Qual personagem você vai interpretar?</p>
+      <div className="grid gap-5 border-b border-ink/10 pb-6 sm:grid-cols-[1fr_auto] sm:items-end">
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-wine/65">Roteiro carregado</p>
+          <h2 className="font-display text-4xl font-black leading-tight text-ink">{script.title}</h2>
+        </div>
+        <p className="max-w-56 text-sm leading-6 text-ink/55 sm:text-right">
+          Qual personagem você vai interpretar?
+        </p>
       </div>
 
       {/* Character cards */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         {script.characters.map((char, i) => (
           <button
             key={char}
             onClick={() => onSelect(char)}
-            className="group relative flex flex-col gap-2 rounded-2xl border border-charcoal/10 bg-warm-white px-5 py-5 text-left transition-all duration-200 hover:border-wine/35 hover:bg-wine/5 hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
+            className="group relative flex min-h-36 flex-col justify-between rounded-lg border border-ink/10 bg-warm-white px-5 py-5 text-left shadow-sm transition-all duration-200 hover:border-wine/35 hover:bg-white active:scale-[0.99]"
           >
-            <span className="font-mono text-[10px] tracking-widests text-gold">
-              {String(i + 1).padStart(2, "0")}
-            </span>
-            <span className="font-display font-bold text-charcoal text-xl leading-tight break-words">
-              {char}
-            </span>
-            <span className="text-charcoal/35 text-xs group-hover:text-charcoal/50 transition-colors">
-              {counts[char]} {counts[char] === 1 ? "fala" : "falas"}
-            </span>
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-wine/0 group-hover:text-wine/50 transition-all text-lg">→</span>
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono text-[10px] text-gold">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="h-7 w-7 rounded-full border border-ink/10 text-center text-lg leading-6 text-wine/0 transition-all group-hover:border-wine/25 group-hover:text-wine">
+                →
+              </span>
+            </div>
+            <div className="space-y-2">
+              <span className="block break-words font-display text-2xl font-bold leading-tight text-ink">
+                {char}
+              </span>
+              <span className="text-xs text-ink/42 transition-colors group-hover:text-ink/60">
+                {counts[char]} {counts[char] === 1 ? "fala" : "falas"}
+              </span>
+            </div>
           </button>
         ))}
       </div>
@@ -55,7 +65,7 @@ export default function CharacterSelector({ script, onSelect, onBack, user, save
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="text-xs text-charcoal/30 hover:text-charcoal/70 transition-colors underline underline-offset-4"
+          className="text-xs text-ink/40 hover:text-ink/75 transition-colors underline underline-offset-4"
         >
           Trocar roteiro
         </button>
@@ -70,7 +80,7 @@ export default function CharacterSelector({ script, onSelect, onBack, user, save
             <button
               onClick={onSave}
               disabled={saving}
-              className="flex items-center gap-1.5 text-xs text-charcoal/40 hover:text-wine border border-charcoal/12 hover:border-wine/30 rounded-lg px-3 py-1.5 transition-all disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-lg border border-ink/12 px-3 py-1.5 text-xs text-ink/45 transition-all hover:border-wine/30 hover:text-wine disabled:opacity-40"
             >
               {saving ? "Salvando…" : "↑ Salvar roteiro"}
             </button>

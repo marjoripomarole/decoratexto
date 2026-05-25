@@ -11,6 +11,7 @@ import PracticeView from "@/components/PracticeView"
 import { createClient } from "@/lib/supabase/client"
 
 type Stage = "upload" | "select" | "practice"
+type ColorMode = "dark" | "light"
 
 interface SavedScript {
   id: string
@@ -29,6 +30,7 @@ export default function Home() {
   const [savedScripts, setSavedScripts] = useState<SavedScript[]>([])
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
+  const [colorMode, setColorMode] = useState<ColorMode>("dark")
 
   const supabase = useMemo(() => createClient(), [])
 
@@ -52,6 +54,14 @@ export default function Home() {
     })
     return () => subscription.unsubscribe()
   }, [fetchSavedScripts, supabase])
+
+  useEffect(() => {
+    const savedMode = window.localStorage.getItem("deixa-color-mode")
+    if (savedMode === "light" || savedMode === "dark") {
+      const frame = window.requestAnimationFrame(() => setColorMode(savedMode))
+      return () => window.cancelAnimationFrame(frame)
+    }
+  }, [])
 
   async function handleLogin() {
     await supabase.auth.signInWithOAuth({
@@ -91,20 +101,44 @@ export default function Home() {
   function handleParsed(s: ParsedScript) { setScript(s); setSavedId(null); setStage("select") }
   function handleCharacterSelect(char: string) { setPlayerCharacter(char); setStage("practice") }
   function loadSaved(s: SavedScript) { setScript(s.parsed_script); setSavedId(s.id); setStage("select") }
+  function toggleColorMode() {
+    setColorMode((current) => {
+      const next = current === "dark" ? "light" : "dark"
+      window.localStorage.setItem("deixa-color-mode", next)
+      return next
+    })
+  }
+
+  const lightMode = colorMode === "light"
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream">
+    <div className={`min-h-screen flex flex-col ${lightMode ? "bg-paper text-ink" : "stage-grid bg-ink text-paper"}`}>
       <main className="flex-1 flex flex-col">
 
         {/* ── UPLOAD STAGE ── */}
         {stage === "upload" && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4 py-6">
+          <div className="flex-1 px-4 py-5 sm:px-6 lg:px-8">
+            <div className="mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-6xl flex-col">
 
             {/* Auth bar */}
-            <div className="w-full max-w-sm flex items-center justify-between min-h-[28px]">
-              <span className="font-display text-lg font-black text-wine tracking-tight">Deixa</span>
-              {!authLoading && (
-                user ? (
+            <div className="flex items-center justify-between min-h-[36px]">
+              <span className={`font-display text-xl font-black tracking-tight ${lightMode ? "text-ink" : "text-paper"}`}>Deixa</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleColorMode}
+                  aria-pressed={lightMode}
+                  aria-label={lightMode ? "Ativar modo escuro" : "Ativar modo claro"}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                    lightMode
+                      ? "border-ink/15 bg-white text-ink/65 hover:border-ink/30 hover:text-ink"
+                      : "border-paper/12 bg-paper/[0.04] text-paper/60 hover:border-paper/25 hover:text-paper"
+                  }`}
+                >
+                  {lightMode ? "Escuro" : "Claro"}
+                </button>
+                {!authLoading && (
+                  user ? (
                   <div className="flex items-center gap-2">
                     {user.user_metadata.avatar_url && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -114,12 +148,12 @@ export default function Home() {
                         className="w-6 h-6 rounded-full"
                       />
                     )}
-                    <span className="text-xs text-charcoal/50">
+                    <span className={`text-xs ${lightMode ? "text-ink/55" : "text-paper/55"}`}>
                       {(user.user_metadata.full_name as string)?.split(" ")[0]}
                     </span>
                     <button
                       onClick={handleLogout}
-                      className="text-[10px] text-charcoal/30 hover:text-charcoal/60 transition-colors"
+                      className={`text-[10px] transition-colors ${lightMode ? "text-ink/45 hover:text-ink/75" : "text-paper/45 hover:text-paper/75"}`}
                     >
                       Sair
                     </button>
@@ -127,82 +161,75 @@ export default function Home() {
                 ) : (
                   <button
                     onClick={handleLogin}
-                    className="flex items-center gap-1.5 text-xs text-charcoal/40 hover:text-charcoal/70 border border-charcoal/10 hover:border-charcoal/20 rounded-lg px-3 py-1.5 transition-all bg-warm-white shadow-sm"
+                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-all ${
+                      lightMode
+                        ? "border-ink/15 bg-white text-ink/65 hover:border-ink/30 hover:text-ink"
+                        : "border-paper/12 bg-paper/[0.04] text-paper/60 hover:border-paper/25 hover:text-paper"
+                    }`}
                   >
                     <GoogleIcon />
                     Entrar com Google
                   </button>
-                )
-              )}
-            </div>
-
-            {/* Hero */}
-            <div className="text-center space-y-3">
-              <div className="inline-flex items-center gap-2 text-[10px] tracking-[0.25em] text-wine/70 uppercase border border-wine/20 rounded-full px-3 py-1 bg-wine/5">
-                <span className="w-1 h-1 rounded-full bg-wine/50 inline-block" />
-                Para atores brasileiros
-              </div>
-              <h1
-                className="font-display font-black text-charcoal leading-[0.95] tracking-tight"
-                style={{ fontSize: "clamp(2.6rem, 9vw, 4.5rem)" }}
-              >
-                Memorize<br />
-                <span className="text-wine italic">suas falas.</span>
-              </h1>
-              <p className="text-charcoal/50 text-sm max-w-[22rem] mx-auto leading-relaxed">
-                Importe seu roteiro e pratique com voz em português brasileiro
-              </p>
-            </div>
-
-            {/* Upload card */}
-            <div className="w-full max-w-sm">
-              <div className="bg-warm-white rounded-2xl p-5 shadow-[0_8px_40px_rgba(139,30,63,0.10)] border border-gold/20">
-                <ScriptUploader onParsed={handleParsed} />
+                  )
+                )}
               </div>
             </div>
 
-            {/* Saved scripts (logged-in only) */}
-            {user && savedScripts.length > 0 && (
-              <div className="w-full max-w-sm space-y-2">
-                <p className="text-[10px] tracking-[0.2em] text-charcoal/30 uppercase">Meus roteiros</p>
-                {savedScripts.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => loadSaved(s)}
-                    className="w-full flex items-center justify-between rounded-xl border border-charcoal/10 bg-warm-white px-4 py-3 text-left hover:border-wine/30 hover:bg-wine/5 transition-all group shadow-sm"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-charcoal truncate">{s.title}</p>
-                      <p className="text-[10px] text-charcoal/30">
-                        {s.parsed_script.characters.length} personagens
-                      </p>
+            <div className="flex flex-1 items-center justify-center py-8 lg:py-10">
+              <section className="w-full max-w-xl">
+                <div className={`rounded-xl border p-3 shadow-[0_24px_80px_rgba(0,0,0,0.16)] ${
+                  lightMode ? "border-ink/10 bg-white" : "border-paper/12 bg-[#20201f]/90"
+                }`}>
+                  <div className={`rounded-lg border p-5 sm:p-6 ${lightMode ? "border-ink/8 bg-warm-white" : "border-paper/10 bg-ink"}`}>
+                    <div className={`mb-5 flex items-start justify-between gap-4 border-b pb-4 ${lightMode ? "border-ink/10" : "border-paper/10"}`}>
+                      <div>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.24em] ${lightMode ? "text-wine" : "text-gold"}`}>novo roteiro</p>
+                        <h2 className={`mt-2 text-xl font-semibold ${lightMode ? "text-ink" : "text-paper"}`}>Carregar cena</h2>
+                      </div>
                     </div>
-                    <span
-                      role="button"
-                      onClick={(e) => handleDeleteScript(e, s.id)}
-                      className="ml-3 shrink-0 text-xl leading-none text-charcoal/20 hover:text-wine opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      ×
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+                    <ScriptUploader onParsed={handleParsed} tone={colorMode} />
+                  </div>
+                </div>
 
-            {/* Step hints */}
-            <div className="flex items-center gap-2 text-[10px] text-charcoal/25 tracking-wide select-none">
-              <span>Envie o roteiro</span>
-              <span className="text-charcoal/15">→</span>
-              <span>Escolha seu papel</span>
-              <span className="text-charcoal/15">→</span>
-              <span>Ouça e pratique</span>
+                {user && savedScripts.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className={`text-[10px] tracking-[0.2em] uppercase ${lightMode ? "text-ink/40" : "text-paper/35"}`}>Meus roteiros</p>
+                    {savedScripts.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => loadSaved(s)}
+                        className={`group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition-all ${
+                          lightMode
+                            ? "border-ink/10 bg-white hover:border-wine/25 hover:bg-warm-white"
+                            : "border-paper/10 bg-paper/[0.04] hover:border-gold/35 hover:bg-paper/[0.07]"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className={`truncate text-sm font-semibold ${lightMode ? "text-ink" : "text-paper"}`}>{s.title}</p>
+                          <p className={`text-[10px] ${lightMode ? "text-ink/40" : "text-paper/35"}`}>
+                            {s.parsed_script.characters.length} personagens
+                          </p>
+                        </div>
+                        <span
+                          role="button"
+                          onClick={(e) => handleDeleteScript(e, s.id)}
+                          className={`ml-3 shrink-0 text-xl leading-none opacity-0 transition-all group-hover:opacity-100 ${lightMode ? "text-ink/25 hover:text-wine" : "text-paper/20 hover:text-gold"}`}
+                        >
+                          ×
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
             </div>
           </div>
         )}
 
         {/* ── SELECT STAGE ── */}
         {stage === "select" && script && (
-          <div className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="flex-1 flex items-center justify-center bg-paper px-4 py-16 text-ink">
             <CharacterSelector
               script={script}
               onSelect={handleCharacterSelect}
@@ -217,7 +244,7 @@ export default function Home() {
 
         {/* ── PRACTICE STAGE ── */}
         {stage === "practice" && script && (
-          <div className="flex-1 flex items-center justify-center px-4 py-8">
+          <div className="flex-1 flex items-center justify-center bg-paper px-4 py-8 text-ink">
             <PracticeView
               script={script}
               playerCharacter={playerCharacter}
