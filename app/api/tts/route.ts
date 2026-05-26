@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createHash } from "node:crypto"
+import { createClient } from "@supabase/supabase-js"
 
 const DEFAULT_OUTPUT_FORMAT = "audio-24khz-48kbitrate-mono-mp3"
 const DEFAULT_VOICE = "pt-BR-FranciscaNeural"
+const DEFAULT_CACHE_BUCKET = "tts-audio"
+const PROVIDER = "azure"
 
 type AzureSpeechError = {
   error?: {
@@ -22,6 +26,102 @@ function getAzureConfig() {
   }
 
   return { key, outputFormat, region }
+}
+
+function getCacheClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceRoleKey || serviceRoleKey === "placeholder") {
+    return null
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  })
+}
+
+function normalizeText(text: string): string {
+  return text.trim().replace(/\s+/g, " ")
+}
+
+function getTextHash(text: string): string {
+  return createHash("sha256").update(text).digest("hex")
+}
+
+function getCachePath(text: string, voiceId: string, outputFormat: string): { hash: string; path: string } {
+  const normalizedText = normalizeText(text)
+  const hash = getTextHash(`${PROVIDER}:${voiceId}:${outputFormat}:${normalizedText}`)
+
+  return {
+    hash,
+    path: `${PROVIDER}/${voiceId}/${outputFormat}/${hash}.mp3`,
+  }
+}
+
+function audioResponse(audio: BodyInit, cacheStatus: "hit" | "miss" | "skip"): NextResponse {
+  return new NextResponse(audio, {
+    headers: {
+      "Content-Type": "audio/mpeg",
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-TTS-Cache": cacheStatus,
+    },
+  })
+}
+
+async function readCachedAudio(path: string): Promise<ArrayBuffer | null> {
+  const supabase = getCacheClient()
+  if (!supabase) return null
+
+  const bucket = process.env.TTS_AUDIO_BUCKET ?? DEFAULT_CACHE_BUCKET
+  const { data, error } = await supabase.storage.from(bucket).download(path)
+  if (error || !data) return null
+
+  return data.arrayBuffer()
+}
+
+async function writeCachedAudio(params: {
+  audio: ArrayBuffer
+  hash: string
+  outputFormat: string
+  path: string
+  voiceId: string
+}) {
+  const supabase = getCacheClient()
+  if (!supabase) return
+
+  const bucket = process.env.TTS_AUDIO_BUCKET ?? DEFAULT_CACHE_BUCKET
+  const blob = new Blob([params.audio], { type: "audio/mpeg" })
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(params.path, blob, {
+      cacheControl: "31536000",
+      contentType: "audio/mpeg",
+      upsert: true,
+    })
+
+  if (uploadError) {
+    console.error("TTS cache upload error:", uploadError)
+    return
+  }
+
+  const { error: metadataError } = await supabase
+    .from("tts_audio_cache")
+    .upsert({
+      cache_key: params.path,
+      provider: PROVIDER,
+      voice_id: params.voiceId,
+      text_hash: params.hash,
+      storage_path: params.path,
+      content_type: "audio/mpeg",
+      byte_size: params.audio.byteLength,
+      output_format: params.outputFormat,
+    }, { onConflict: "cache_key" })
+
+  if (metadataError) {
+    console.error("TTS cache metadata error:", metadataError)
+  }
 }
 
 function escapeXml(value: string): string {
@@ -89,6 +189,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 })
   }
 
+  const normalizedText = normalizeText(text)
+  const { hash, path } = getCachePath(normalizedText, voiceId, config.outputFormat)
+  const cachedAudio = await readCachedAudio(path)
+
+  if (cachedAudio) {
+    return audioResponse(cachedAudio, "hit")
+  }
+
   const response = await fetch(
     `https://${config.region}.tts.speech.microsoft.com/cognitiveservices/v1`,
     {
@@ -99,7 +207,7 @@ export async function POST(req: NextRequest) {
         "X-Microsoft-OutputFormat": config.outputFormat,
         "User-Agent": "deixa",
       },
-      body: createSsml(text, voiceId),
+      body: createSsml(normalizedText, voiceId),
     }
   )
 
@@ -112,10 +220,14 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  return new NextResponse(response.body, {
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Cache-Control": "no-store",
-    },
+  const audio = await response.arrayBuffer()
+  await writeCachedAudio({
+    audio,
+    hash,
+    outputFormat: config.outputFormat,
+    path,
+    voiceId,
   })
+
+  return audioResponse(audio, getCacheClient() ? "miss" : "skip")
 }
