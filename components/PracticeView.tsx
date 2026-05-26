@@ -7,6 +7,27 @@ import { VOICES } from "@/lib/voices"
 import { preloadLines, clearCache, onStatus, type PreloadStatus } from "@/lib/audioCache"
 
 type LineAttempt = "passed" | "failed"
+type RecallMode = "read" | "first-letter" | "keyword" | "blackout"
+
+const RECALL_MODES: Array<{ id: RecallMode; label: string }> = [
+  { id: "read", label: "Ler" },
+  { id: "first-letter", label: "Iniciais" },
+  { id: "keyword", label: "Palavras-chave" },
+  { id: "blackout", label: "Blackout" },
+]
+
+const RECALL_MODE_LABELS: Record<RecallMode, string> = {
+  read: "Ler",
+  "first-letter": "Iniciais",
+  keyword: "Palavras-chave",
+  blackout: "Blackout",
+}
+
+const STOPWORDS = new Set([
+  "a", "as", "ao", "aos", "e", "em", "eu", "o", "os", "ou", "um", "uma", "uns", "umas",
+  "de", "da", "das", "do", "dos", "me", "meu", "minha", "na", "nas", "no", "nos", "por",
+  "pra", "para", "que", "se", "te", "tu", "voce", "voces", "com",
+])
 
 interface Props {
   script: ParsedScript
@@ -36,8 +57,40 @@ export function getCueText(text: string, maxWords = 5): string {
   return words.length <= maxWords ? finalSentence : words.slice(-maxWords).join(" ")
 }
 
+export function getFirstLetterHint(text: string): string {
+  return text.replace(/\p{L}[\p{L}\p{M}]*/gu, (word) => `${word[0]}${"_".repeat(Math.max(1, word.length - 1))}`)
+}
+
+export function getKeywordHint(text: string): string {
+  return text
+    .split(/(\s+)/)
+    .map((part) => {
+      if (/^\s+$/.test(part)) return part
+
+      const core = part.match(/[\p{L}\p{M}]+/gu)?.join("") ?? ""
+      const normalized = core.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+
+      if (core.length >= 5 && !STOPWORDS.has(normalized)) return part
+
+      return part.replace(/\p{L}/gu, "_")
+    })
+    .join("")
+}
+
+function getRecallModeText(text: string, mode: RecallMode): string {
+  if (mode === "read") return text
+  if (mode === "first-letter") return getFirstLetterHint(text)
+  if (mode === "keyword") return getKeywordHint(text)
+  return ""
+}
+
 function getAudioCacheId(lineId: string, cueMode: boolean): string {
   return cueMode ? `${lineId}:cue` : lineId
+}
+
+function getNextRecallMode(mode: RecallMode): RecallMode {
+  const index = RECALL_MODES.findIndex((item) => item.id === mode)
+  return RECALL_MODES[Math.min(index + 1, RECALL_MODES.length - 1)].id
 }
 
 export default function PracticeView({ script, playerCharacter, onBack }: Props) {
@@ -54,10 +107,14 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
   const [showSettings, setShowSettings] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
   const [attempts, setAttempts] = useState<Record<string, LineAttempt>>({})
+  const [recallModes, setRecallModes] = useState<Record<string, RecallMode>>({})
+  const [successStreaks, setSuccessStreaks] = useState<Record<string, number>>({})
   const [preload, setPreload] = useState<PreloadStatus>({ total: 0, loaded: 0, failed: 0, done: true })
 
   const current = lines[index]
   const isPlayerLine = current?.character === playerCharacter
+  const currentRecallMode = current ? recallModes[current.id] ?? "read" : "read"
+  const currentSuccessStreak = current ? successStreaks[current.id] ?? 0 : 0
   const progress = ((index + 1) / lines.length) * 100
   const playerLines = useMemo(() => lines.filter((l) => l.character === playerCharacter), [lines, playerCharacter])
   const markedPlayerLines = playerLines.filter((l) => attempts[l.id])
@@ -110,9 +167,28 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
   const markCurrentLine = useCallback((attempt: LineAttempt) => {
     if (!current || !isPlayerLine) return
 
+    const nextStreak = attempt === "passed" ? currentSuccessStreak + 1 : 0
+
     setAttempts((currentAttempts) => ({ ...currentAttempts, [current.id]: attempt }))
+    setSuccessStreaks((currentStreaks) => ({ ...currentStreaks, [current.id]: nextStreak >= 3 ? 0 : nextStreak }))
+
+    if (nextStreak >= 3) {
+      setRecallModes((currentModes) => ({
+        ...currentModes,
+        [current.id]: getNextRecallMode(currentModes[current.id] ?? currentRecallMode),
+      }))
+    }
+
     next()
-  }, [current, isPlayerLine, next])
+  }, [current, currentRecallMode, currentSuccessStreak, isPlayerLine, next])
+
+  const setCurrentRecallMode = useCallback((mode: RecallMode) => {
+    if (!current || !isPlayerLine) return
+
+    setRevealed(false)
+    setSuccessStreaks((currentStreaks) => ({ ...currentStreaks, [current.id]: 0 }))
+    setRecallModes((currentModes) => ({ ...currentModes, [current.id]: mode }))
+  }, [current, isPlayerLine])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -129,6 +205,9 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
   }, [isPlayerLine, next, playCurrentLine, prev])
 
   if (!current) return null
+
+  const showFullPlayerText = isPlayerLine && (revealed || currentRecallMode === "read")
+  const recallText = getRecallModeText(current.text, currentRecallMode)
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col gap-5">
@@ -208,6 +287,26 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
               <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${cueMode ? "translate-x-5" : ""}`} />
             </button>
           </label>
+          {isPlayerLine && (
+            <div className="space-y-2">
+              <span className="text-ink/60 text-xs tracking-wide">Modo de memória</span>
+              <div className="grid grid-cols-2 gap-2">
+                {RECALL_MODES.map((mode) => (
+                  <button
+                    key={mode.id}
+                    onClick={() => setCurrentRecallMode(mode.id)}
+                    aria-pressed={currentRecallMode === mode.id}
+                    className={`rounded-md border px-3 py-2 text-xs font-semibold transition-all ${currentRecallMode === mode.id
+                      ? "border-wine bg-wine text-warm-white"
+                      : "border-ink/10 text-ink/45 hover:border-ink/25 hover:text-ink/70"
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-4">
             <span className="text-ink/60 text-xs tracking-wide">Velocidade</span>
             <div className="flex items-center gap-3">
@@ -243,6 +342,7 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
           {isPlayerLine && " — você"}
           {attempts[current.id] === "passed" && " · acertei"}
           {attempts[current.id] === "failed" && " · revisar"}
+          {isPlayerLine && ` · ${RECALL_MODE_LABELS[currentRecallMode].toLowerCase()}`}
         </span>
       </div>
 
@@ -255,22 +355,33 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
 
         {isPlayerLine ? (
           <>
-            {revealed ? (
+            {showFullPlayerText ? (
               <p className="font-display text-2xl md:text-4xl leading-relaxed font-medium text-ink">
                 {current.text}
               </p>
-            ) : (
+            ) : currentRecallMode === "blackout" ? (
               <div className="flex flex-wrap gap-1.5 items-end">
                 {current.text.split(" ").map((w, i) => (
                   <span key={i} className="inline-block rounded-md h-6 bg-wine/20"
                     style={{ width: `${Math.max(28, w.length * 10)}px` }} />
                 ))}
               </div>
+            ) : (
+              <p className="font-display text-2xl md:text-4xl leading-relaxed font-medium text-ink">
+                {recallText}
+              </p>
             )}
-            <button onClick={() => setRevealed((r) => !r)}
-              className="self-start rounded-lg border border-wine/25 px-4 py-2 text-xs font-semibold tracking-wide text-wine transition-all hover:border-wine/50 hover:text-wine-dark">
-              {revealed ? "Ocultar fala" : "Revelar fala"}
-            </button>
+            {currentRecallMode !== "read" && (
+              <button onClick={() => setRevealed((r) => !r)}
+                className="self-start rounded-lg border border-wine/25 px-4 py-2 text-xs font-semibold tracking-wide text-wine transition-all hover:border-wine/50 hover:text-wine-dark">
+                {revealed ? "Ocultar fala" : "Revelar fala"}
+              </button>
+            )}
+            {currentSuccessStreak > 0 && (
+              <p className="text-xs text-ink/35">
+                Sequência {currentSuccessStreak}/3
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button
                 onClick={() => markCurrentLine("passed")}

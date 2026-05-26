@@ -4,7 +4,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import PracticeView, { getCueText } from "@/components/PracticeView"
+import PracticeView, { getCueText, getFirstLetterHint, getKeywordHint } from "@/components/PracticeView"
 import type { ParsedScript } from "@/types/script"
 
 const mocks = vi.hoisted(() => ({
@@ -61,6 +61,11 @@ describe("practice view cue mode", () => {
     expect(getCueText("   ")).toBe("")
   })
 
+  it("builds active-recall hints from player text", () => {
+    expect(getFirstLetterHint("Eu entro agora.")).toBe("E_ e____ a____.")
+    expect(getKeywordHint("Eu entro agora.")).toBe("__ entro agora.")
+  })
+
   it("switches the visible line and TTS playback to cue-only mode", async () => {
     render(<PracticeView script={script} playerCharacter="ANA" onBack={vi.fn()} />)
 
@@ -110,11 +115,27 @@ describe("practice view cue mode", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Próxima →" }))
 
-    expect(screen.getByText("ANA — você")).toBeTruthy()
+    expect(screen.getByText("ANA — você · ler")).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Acertei" }))
 
     expect(screen.getByText("1/1 · 100%")).toBeTruthy()
-    expect(screen.getByText("ANA — você · acertei")).toBeTruthy()
+    expect(screen.getByText("ANA — você · acertei · ler")).toBeTruthy()
     expect(screen.getByText("1/1 falas marcadas")).toBeTruthy()
+  })
+
+  it("advances a player line to first-letter recall after three successful marks", () => {
+    render(<PracticeView script={script} playerCharacter="ANA" onBack={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Próxima →" }))
+    fireEvent.click(screen.getByRole("button", { name: "Acertei" }))
+    fireEvent.click(screen.getByRole("button", { name: "Acertei" }))
+
+    expect(screen.getByText("Sequência 2/3")).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Acertei" }))
+
+    expect(screen.getByText("ANA — você · acertei · iniciais")).toBeTruthy()
+    expect(screen.getByText("E_ e____ a____.")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Revelar fala" })).toBeTruthy()
   })
 })
