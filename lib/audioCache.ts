@@ -1,10 +1,16 @@
 // Pre-generates and caches audio blobs from /api/tts so every line
 // plays with zero latency. Generation runs 3 requests in parallel.
 
-export type PreloadStatus = { total: number; loaded: number; done: boolean }
+export type PreloadStatus = {
+  total: number
+  loaded: number
+  failed: number
+  done: boolean
+  error?: string
+}
 
 const cache = new Map<string, string>() // lineId → ObjectURL
-let _status: PreloadStatus = { total: 0, loaded: 0, done: true }
+let _status: PreloadStatus = { total: 0, loaded: 0, failed: 0, done: true }
 const _listeners = new Set<(s: PreloadStatus) => void>()
 
 function emit(s: PreloadStatus) {
@@ -27,7 +33,16 @@ export function getCachedUrl(lineId: string): string | null {
 export function clearCache() {
   cache.forEach((url) => URL.revokeObjectURL(url))
   cache.clear()
-  emit({ total: 0, loaded: 0, done: true })
+  emit({ total: 0, loaded: 0, failed: 0, done: true })
+}
+
+async function getErrorMessage(res: Response): Promise<string> {
+  try {
+    const data = await res.json() as { error?: string }
+    return data.error ?? "Não foi possível gerar as vozes."
+  } catch {
+    return "Não foi possível gerar as vozes."
+  }
 }
 
 export async function preloadLines(
@@ -38,7 +53,9 @@ export async function preloadLines(
 
   const total = items.length
   let loaded = 0
-  emit({ total, loaded: 0, done: false })
+  let failed = 0
+  let error: string | undefined
+  emit({ total, loaded: 0, failed: 0, done: false })
 
   const queue = [...items]
 
@@ -55,13 +72,18 @@ export async function preloadLines(
       if (res.ok) {
         const blob = await res.blob()
         cache.set(item.id, URL.createObjectURL(blob))
+      } else {
+        failed++
+        error = await getErrorMessage(res)
       }
-    } catch {
+    } catch (err) {
       // line stays uncached — speak() will generate on demand as fallback
+      failed++
+      error = err instanceof Error ? err.message : "Não foi possível gerar as vozes."
     }
 
     loaded++
-    emit({ total, loaded, done: loaded === total })
+    emit({ total, loaded, failed, done: loaded === total, error })
     await worker() // recurse until queue empty
   }
 

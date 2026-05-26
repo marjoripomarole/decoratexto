@@ -1,8 +1,10 @@
 export const VOICES = [
-  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female" },
-  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", gender: "female" },
-  { id: "SAz9YHcvj6GT2YYXdXww", name: "River", gender: "neutral" },
-  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male" },
-  { id: "N2lVS1w4EtoT3dr4eOWO", name: "Callum", gender: "male" },
-  { id: "bIHbv24MWmeRgasZH58o", name: "Will", gender: "male" },
+  { id: "pt-BR-FranciscaNeural", name: "Francisca", gender: "female" },
+  { id: "pt-BR-AntonioNeural", name: "Antonio", gender: "male" },
+  { id: "pt-BR-BrendaNeural", name: "Brenda", gender: "female" },
+  { id: "pt-BR-DonatoNeural", name: "Donato", gender: "male" },
+  { id: "pt-BR-ElzaNeural", name: "Elza", gender: "female" },
+  { id: "pt-BR-FabioNeural", name: "Fabio", gender: "male" },
+  { id: "pt-BR-GiovannaNeural", name: "Giovanna", gender: "female" },
+  { id: "pt-BR-HumbertoNeural", name: "Humberto", gender: "male" },
 ]

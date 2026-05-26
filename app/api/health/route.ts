@@ -14,18 +14,20 @@ export async function GET() {
     checks.supabase = `error: ${String(e)}`
   }
 
-  // ── ElevenLabs ───────────────────────────────────────────────────────────
-  const apiKey = process.env.ELEVENLABS_API_KEY
-  if (!apiKey || apiKey === "placeholder") {
-    checks.elevenlabs = "error: API key not configured"
+  // ── Azure Speech ─────────────────────────────────────────────────────────
+  const speechKey = process.env.AZURE_SPEECH_KEY ?? process.env.SPEECH_KEY
+  const speechRegion = process.env.AZURE_SPEECH_REGION ?? process.env.SPEECH_REGION
+
+  if (!speechKey || speechKey === "placeholder" || !speechRegion || speechRegion === "placeholder") {
+    checks.azureSpeech = "error: API key or region not configured"
   } else {
     try {
-      const res = await fetch("https://api.elevenlabs.io/v1/user", {
-        headers: { "xi-api-key": apiKey },
+      const res = await fetch(`https://${speechRegion}.tts.speech.microsoft.com/cognitiveservices/voices/list`, {
+        headers: { "Ocp-Apim-Subscription-Key": speechKey },
       })
-      checks.elevenlabs = res.ok ? "ok" : `error: HTTP ${res.status}`
+      checks.azureSpeech = res.ok ? "ok" : `error: HTTP ${res.status}`
     } catch (e) {
-      checks.elevenlabs = `error: ${String(e)}`
+      checks.azureSpeech = `error: ${String(e)}`
     }
   }
 

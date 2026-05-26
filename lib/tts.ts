@@ -1,4 +1,4 @@
-// ElevenLabs TTS via server-side proxy — checks audio cache first,
+// Azure Speech TTS via server-side proxy — checks audio cache first,
 // falls back to on-demand API call if a line wasn't preloaded.
 import { getCachedUrl } from "./audioCache"
 
@@ -7,7 +7,7 @@ let currentAudio: HTMLAudioElement | null = null
 export async function speak(
   text: string,
   voiceId: string,
-  options?: { rate?: number; onEnd?: () => void; onError?: () => void },
+  options?: { rate?: number; onEnd?: () => void; onError?: (message?: string) => void },
   lineId?: string
 ) {
   stop()
@@ -24,7 +24,10 @@ export async function speak(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, voiceId }),
     })
-    if (!res.ok) { options?.onError?.(); return }
+    if (!res.ok) {
+      options?.onError?.(await getErrorMessage(res))
+      return
+    }
     const blob = await res.blob()
     url = URL.createObjectURL(blob)
     owned = true
@@ -42,17 +45,26 @@ export async function speak(
   audio.onerror = () => {
     if (owned) URL.revokeObjectURL(url)
     currentAudio = null
-    options?.onError?.()
+    options?.onError?.("Não foi possível reproduzir a voz.")
   }
 
   try {
     await audio.play()
-  } catch {
+  } catch (err) {
     // Browser blocked autoplay (no user gesture) — reset state so
     // the "Ouvir novamente" button stays clickable.
     currentAudio = null
     if (owned) URL.revokeObjectURL(url)
-    options?.onError?.()
+    options?.onError?.(err instanceof Error ? err.message : "Não foi possível reproduzir a voz.")
+  }
+}
+
+async function getErrorMessage(res: Response): Promise<string> {
+  try {
+    const data = await res.json() as { error?: string }
+    return data.error ?? "Não foi possível gerar a voz."
+  } catch {
+    return "Não foi possível gerar a voz."
   }
 }
 

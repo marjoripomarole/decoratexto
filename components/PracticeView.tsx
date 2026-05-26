@@ -50,7 +50,8 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
   const [autoPlay, setAutoPlay] = useState(true)
   const [cueMode, setCueMode] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [preload, setPreload] = useState<PreloadStatus>({ total: 0, loaded: 0, done: true })
+  const [voiceError, setVoiceError] = useState<string | null>(null)
+  const [preload, setPreload] = useState<PreloadStatus>({ total: 0, loaded: 0, failed: 0, done: true })
 
   const current = lines[index]
   const isPlayerLine = current?.character === playerCharacter
@@ -72,10 +73,11 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
     if (!current || isPlayerLine) return
     const voiceId = voiceMap[current.character] ?? VOICES[0].id
     const spokenText = cueMode ? getCueText(current.text) : current.text
+    setVoiceError(null)
     setLoading(true); setSpeaking(true)
     await speak(
       spokenText, voiceId,
-      { rate: speechRate, onEnd: () => { setSpeaking(false); setLoading(false) }, onError: () => { setSpeaking(false); setLoading(false) } },
+      { rate: speechRate, onEnd: () => { setSpeaking(false); setLoading(false) }, onError: (message) => { setVoiceError(message ?? "Não foi possível reproduzir a voz."); setSpeaking(false); setLoading(false) } },
       getAudioCacheId(current.id, cueMode),
     )
     setLoading(false)
@@ -140,6 +142,13 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
         </div>
       )}
 
+      {/* Voice error banner */}
+      {(voiceError || (preload.done && preload.failed > 0)) && (
+        <div className="rounded-lg border border-wine/20 bg-wine/8 px-4 py-3 text-xs leading-relaxed text-wine">
+          {voiceError ?? preload.error ?? "Não foi possível gerar algumas vozes."}
+        </div>
+      )}
+
       {/* Header row */}
       <div className="flex items-center justify-between border-b border-ink/10 pb-4">
         <button onClick={() => { stop(); onBack() }}
@@ -170,7 +179,7 @@ export default function PracticeView({ script, playerCharacter, onBack }: Props)
           <label className="flex items-center justify-between">
             <span className="text-ink/60 text-xs tracking-wide">Só deixa</span>
             <button
-              onClick={() => setCueMode((enabled) => !enabled)}
+              onClick={() => { setVoiceError(null); setCueMode((enabled) => !enabled) }}
               aria-label={cueMode ? "Desativar modo só deixa" : "Ativar modo só deixa"}
               aria-pressed={cueMode}
               className={`relative w-10 h-5 rounded-full transition-colors ${cueMode ? "bg-wine" : "bg-ink/15"}`}

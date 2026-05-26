@@ -1,7 +1,7 @@
 # Deixa — Production Roadmap
 
 > Last updated: May 2026  
-> Current stack: Next.js 16 · Supabase · ElevenLabs · Vercel
+> Current stack: Next.js 16 · Supabase · Azure Speech · Vercel
 
 ---
 
@@ -11,7 +11,7 @@
 |---|---|
 | PDF script upload + parsing | ✅ Done |
 | Character selection | ✅ Done |
-| TTS playback (ElevenLabs, multilingual v2) | ✅ Done |
+| TTS playback (Azure Speech, pt-BR neural voices) | ✅ Done |
 | Background audio pre-generation + caching | ✅ Done |
 | Google OAuth + user accounts (Supabase) | ✅ Done |
 | Save / load scripts per user | ✅ Done |
@@ -93,20 +93,20 @@ Currently characters are assigned voices round-robin from a fixed list. Give act
 **Build:**
 - In `CharacterSelector`, show a voice picker per character with name + audio preview (5-second sample)
 - Store voice assignments in `parsed_script.voiceMap` (already have the field structure)
-- ElevenLabs has 30+ built-in voices; surface them with gender and tone labels
+- Azure Speech has multiple pt-BR neural voices; surface them with gender and tone labels
 
 ### 2.2 Emotional Tone Selector
-ElevenLabs `voice_settings` already has `style` (0–1) and `stability` parameters. Expose these as presets.
+Azure Speech SSML supports prosody controls, and some voices support expressive styles. Expose simple presets where the selected voice supports them.
 
 > **Why:** Voice coaches emphasize that a practice partner voice should model the intended emotional register of the scene. Dramatic scenes need a different reading than comedy. Actors practicing emotional response work are significantly helped by a reader whose tone matches the scene's energy.
 
 **Build:**
 ```
 Presets:
-  calm      → stability: 0.8, style: 0.1
-  dramatic  → stability: 0.4, style: 0.6
-  urgent    → stability: 0.3, style: 0.8
-  comic     → stability: 0.6, style: 0.4
+  calm      → rate: -8%, pitch: -2%
+  dramatic  → rate: -4%, pitch: -4%
+  urgent    → rate: +12%, pitch: +2%
+  comic     → rate: +4%, pitch: +6%
 ```
 Let actors set a preset per character. Stored in voice metadata.
 
@@ -222,7 +222,7 @@ Wrap the Next.js app as a Progressive Web App for home-screen install on iOS and
 
 ### 6.3 Error Monitoring
 - Add [Sentry](https://sentry.io) for both client and server errors
-- Alert on ElevenLabs 4xx/5xx error rates (API key expiry is a real operational risk — we've already hit it once)
+- Alert on Azure Speech 4xx/5xx error rates (API key expiry or free-tier quota exhaustion is a real operational risk)
 
 ### 6.4 Analytics
 - [PostHog](https://posthog.com) (open source, LGPD-friendly) for product analytics
@@ -266,7 +266,7 @@ Currently the app is optimized for multi-character dialogue. Add a dedicated mod
 
 | Issue | Fix |
 |---|---|
-| ElevenLabs API key rotation | Add key-validity health check on startup; Slack/email alert when quota is low |
+| Azure Speech API key rotation | Add key-validity health check on startup; Slack/email alert when quota is low |
 | No rate limiting on `/api/tts` | Add per-user request rate limit (Vercel Edge Config or Upstash Redis) |
 | Audio preloading always runs | Only preload if user has Pro plan or fewer than N lines |
 | Script parser is regex-only | Add LLM-assisted parsing fallback for non-standard script formats |

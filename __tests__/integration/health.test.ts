@@ -22,7 +22,7 @@ describe.skipIf(!BASE_URL)("Health check integration (requires TEST_URL)", () =>
     expect(res.status).toBe(200)
     expect(data.status).toBe("ok")
     expect(data.checks.supabase).toBe("ok")
-    expect(data.checks.elevenlabs).toBe("ok")
+    expect(data.checks.azureSpeech).toBe("ok")
     expect(data.timestamp).toBeTruthy()
   })
 

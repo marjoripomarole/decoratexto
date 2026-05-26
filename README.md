@@ -9,10 +9,19 @@ The product is launching first for Brazilian actors at [deixa.app](https://deixa
 - Next.js 16 App Router
 - React 19
 - Supabase auth and saved scripts
-- ElevenLabs text-to-speech
+- Azure Speech text-to-speech
 - Vercel deployment
 
 ## Local Development
+
+Add these environment variables to `.env.local`:
+
+```bash
+AZURE_SPEECH_KEY=your_azure_speech_key
+AZURE_SPEECH_REGION=brazilsouth
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
 ```bash
 npm run dev
